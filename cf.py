@@ -30,17 +30,17 @@ def user_filtering(user, item, df, users, k):
     other_users = [u for u in users if u != user]
     similarities = {other_user: cosine_similarity(df.loc[user], df.loc[other_user]) for other_user in other_users}
     top_users = sorted(similarities.items(), key=lambda x: x[1], reverse=True)[:k]
-    weighted_sum = sum(similarity * df.loc[other_user, item] for other_user, similarity in top_users)
-    total_similarity = sum(similarity for _, similarity in top_users)
-    return math.ceil(weighted_sum / total_similarity) if total_similarity > 0 else 0
+    weighted_sum = sum(similarity * df.loc[other_user, item] for other_user, similarity in top_users if df.loc[other_user,item]>0)
+    total_similarity = sum(similarity for _, similarity in top_users if df.loc[_,item]>0)
+    return weighted_sum / total_similarity if total_similarity > 0 else 0
 
 def item_filtering(user, item, df, items, k):
     other_items = [i for i in items if i != item]
     similarities = {other_item: cosine_similarity(df[item], df[other_item]) for other_item in other_items}
     top_items = sorted(similarities.items(), key=lambda x: x[1], reverse=True)[:k]
-    weighted_sum = sum(similarity * df.loc[user][other_item] for other_item, similarity in top_items)
-    total_similarity = sum(similarity for _, similarity in top_items)
-    return math.ceil(weighted_sum / total_similarity) if total_similarity > 0 else 0
+    weighted_sum = sum(similarity * df.loc[user][other_item] for other_item, similarity in top_items if df.loc[user,other_item]>0)
+    total_similarity = sum(similarity for _, similarity in top_items if df.loc[user,_]>0)
+    return weighted_sum / total_similarity if total_similarity > 0 else 0
 
 
 users = sorted(set(user for user, _, _ in ratings))
