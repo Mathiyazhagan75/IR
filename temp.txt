@@ -1,0 +1,166 @@
+import numpy as np
+from scipy.spatial.distance import cosine
+from enum import Enum
+
+
+class Method(Enum):
+    USER = 'User'
+    ITEM = 'Item'
+
+
+class RecommendationSystem:
+    def __init__(self, ratings, method=Method.USER):
+        self.ratings = (np.array(ratings) if method==Method.USER else np.array(ratings).T)
+        self.num_rows, self.num_cols = self.ratings.shape
+        self.method = method
+
+    def _cosine_similarity(self, vec1, vec2):
+        # Exclude elements where either vector has a rating of -1
+        mask = (vec1 != -1) & (vec2 != -1)
+        vec1_masked = vec1[mask]
+        vec2_masked = vec2[mask]
+        dot_product = np.dot(vec1_masked, vec2_masked)
+        norm1 = np.linalg.norm(vec1_masked)
+        norm2 = np.linalg.norm(vec2_masked)
+        if norm1 == 0 or norm2 == 0:
+            return 0
+        return dot_product / (norm1 * norm2)
+
+    def predict_rating(self, user_id, item_id, k=5):
+        if self.method == Method.USER:
+          row_id = user_id
+          col_id = item_id
+        else:
+          row_id = item_id
+          col_id = user_id
+        ratings = self.ratings[row_id]
+        similarities = []
+
+        # Calculate cosine similarity between the target user and all other users
+        for i in range(self.num_rows):
+            if i != row_id:
+                other_ratings = self.ratings[i]
+                similarity = self._cosine_similarity(ratings, other_ratings)
+                similarities.append((i, similarity))
+        # Sort users by similarity in descending order
+        similarities.sort(key=lambda x: x[1], reverse=True)
+
+        # Find top k most similar users
+        top_similarities = similarities[:k]
+        # Calculate predicted rating for the target item
+        total_similarity = 0
+        weighted_sum = 0
+        for other_id, similarity in top_similarities:
+            if self.ratings[other_id][col_id] != -1:
+                weighted_sum += similarity * self.ratings[other_id][col_id]
+                total_similarity += similarity
+        if total_similarity == 0:
+            return 0  # Unable to predict rating
+        else:
+            return weighted_sum / total_similarity
+
+# Example usage
+ratings = [
+    [5, 3, -1, -1, 2],
+    [4, -1, -1, 2, 1],
+    [1, 1, -1, 4, 5],
+    [-1, -1, 4, 3, -1],
+    [-1, -1, 4, 1, -1]
+]
+
+# Predict rating for user 0 and item 2 using user-based method
+rs = RecommendationSystem(ratings, method=Method.USER)
+
+predicted_rating_user = rs.predict_rating(user_id=3, item_id=0, k=3)
+print(f"Predicted rating ({Method.USER.value}-based):", predicted_rating_user)
+
+# Predict rating for item 1 and user 3 using item-based method
+rs2 = RecommendationSystem(ratings, method=Method.ITEM)
+
+predicted_rating_user = rs2.predict_rating(user_id=0, item_id=4, k=3)
+print(f"Predicted rating ({Method.ITEM.value}-based):", predicted_rating_user)
+
+import numpy as np
+
+adj_matrix = [[0, 0, 1, 0, 0, 0, 0],
+              [0, 1, 1, 0, 0, 0, 0],
+              [1, 0, 1, 2, 0, 0, 0],
+              [0, 0, 0, 1, 1, 0, 0],
+              [0, 0, 0, 0, 0, 0, 1],
+              [0, 0, 0, 0, 0, 1, 1],
+              [0, 0, 0, 2, 1, 0, 1]]
+
+n = len(adj_matrix)
+
+A = np.array(adj_matrix)
+
+
+def principal_eig_vector(A):
+    eig_val, eig_vec = np.linalg.eig(A)
+
+    principal_eig_val_index = np.argmax(eig_val)
+
+    ev = eig_vec[:, principal_eig_val_index]
+    return np.divide(ev, np.sum(ev))
+
+
+a = principal_eig_vector(np.matmul(A.T, A))
+h = principal_eig_vector(np.matmul(A, A.T))
+
+k = 3
+top_k_hub_pages = np.argsort(h)[::-1][:k]
+top_k_auth_pages = np.argsort(a)[::-1][:k]
+print(top_k_hub_pages, top_k_auth_pages)
+
+
+import numpy as np
+
+
+def getG(adj_matrix, alpha=0.5):
+    G = adj_matrix
+    n = len(G)
+
+    zero_rows = np.where(np.all(np.equal(G, 0), axis=1))[0]
+    non_zero_rows = [i for i in range(n) if i not in zero_rows]
+
+    for i in zero_rows:
+        G[i] = [1/n]*n
+
+    for i in non_zero_rows:
+        G[i] = np.divide(G[i], np.sum(G[i]))
+        G[i] = np.multiply(G[i], 1-alpha)
+        G[i] = np.add(G[i], alpha/n)
+
+    return np.array(G)
+
+
+adj_matrix = [[0, 0, 0, 0],
+              [1, 0, 1, 1],
+              [0, 0, 0, 0],
+              [0, 0, 1, 1]]
+
+# adj_matrix = [[0, 1, 0],
+#               [1, 0, 1],
+#               [0, 1, 0]]
+
+n = len(adj_matrix)
+
+G = getG(adj_matrix)
+print(G)
+
+
+def principal_eigen(A):
+    eig_val, eig_vec = np.linalg.eig(A)
+
+    principal_eig_val_index = np.argmax(eig_val)
+
+    ev = eig_vec[:, principal_eig_val_index]
+    return np.divide(ev, np.sum(ev))
+
+
+pr = principal_eigen(G.T)
+
+print(pr)
+k = 2
+top_k_pages = np.argsort(pr)[::-1][:k]
+print(top_k_pages)
